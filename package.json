@@ -18,11 +18,13 @@
     "dashboard"
   ],
   "homepage": "https://github.com/ParsePlatform/parse-dashboard",
-  "bugs": "https://github.com/ParsePlatform/parse-dashboard/issues",
+  "bugs": {
+    "url": "https://github.com/ParsePlatform/parse-dashboard/issues"
+  },
   "version": "1.0.15",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ParsePlatform/parse-dashboard"
+    "url": "git+https://github.com/ParsePlatform/parse-dashboard.git"
   },
   "license": "SEE LICENSE IN LICENSE",
   "files": [
@@ -100,5 +102,6 @@
       "react-addons-test-utils",
       "fbjs"
     ]
-  }
+  },
+  "author": ""
 }

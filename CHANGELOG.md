@@ -1,6 +1,50 @@
 ## Parse Dashboard Changelog
 
-* 1.0.15
+### NEXT RELEASE
+
+* _Contributing to this repo? Add info about your change here to be included in next release_
+
+### 1.0.22
+
+* Fix issue affecting logging screen with encrypted passwords, thanks to [lsohn](https://github.com/lsohn)
+
+### 1.0.21
+
+* Fix: Use mountPath for all log in and log out redirects
+
+### 1.0.20
+
+* New: Form based login page instead of basic auth (#562), thanks to [Jeremy Louie](https://github.com/JeremyPlease)
+* Fix: Can't send push to specific user (#570), thanks to [Dan VanWinkle](https://github.com/dvanwinkle)
+* Fix: Download link in footer menu (#567), thanks to [Pavel Ivanov](https://github.com/pivanov)
+
+
+### 1.0.19
+
+* New: Support for trusting proxies w/ HTTPS
+* New: Support for filtering string with `ends with`
+* New: View parse-server based jobs
+* New: Button to add rows from browser toolbar
+* New: Support for encrypted passwords
+* New: Support for sorting by `createdAt`
+* Improvement: Push audiences support
+* Fix: Calendar dates support
+
+### 1.0.18
+
+* Fix: Revert history change that was causing issues when mounting on express
+
+### 1.0.17
+
+* Fix: Revert mount path change that was causing issues when mounting on express
+
+### 1.0.16
+
+* New: Add options to add selected rows to a relation, thanks to [Han BaHwan](https://github.com/Beingbook)
+* New: Add ability to use bcrypted passwords, thanks to [Dan VanWinkle](https://github.com/dvanwinkle)
+* Fix: Fix deletion of columns, thanks to [Bryan Rhea](https://github.com/brheal)
+
+### 1.0.15
 
 * New: Add ability to delete all rows in a class, thanks to [Marco Cheung](https://github.com/Marco129)
 * New: Add relation editor, thanks to [Han BaHwan](https://github.com/Beingbook)

@@ -17,6 +17,7 @@ import DropClassDialog                    from 'dashboard/Data/Browser/DropClass
 import EmptyState                         from 'components/EmptyState/EmptyState.react';
 import ExportDialog                       from 'dashboard/Data/Browser/ExportDialog.react';
 import AttachRowsDialog                   from 'dashboard/Data/Browser/AttachRowsDialog.react';
+import AttachSelectedRowsDialog           from 'dashboard/Data/Browser/AttachSelectedRowsDialog.react';
 import history                            from 'dashboard/history';
 import { List, Map }                      from 'immutable';
 import Notification                       from 'dashboard/Data/Browser/Notification.react';
@@ -76,12 +77,17 @@ export default class Browser extends DashboardView {
     this.showAttachRowsDialog = this.showAttachRowsDialog.bind(this);
     this.cancelAttachRows = this.cancelAttachRows.bind(this);
     this.confirmAttachRows = this.confirmAttachRows.bind(this);
+    this.showAttachSelectedRowsDialog = this.showAttachSelectedRowsDialog.bind(this);
+    this.confirmAttachSelectedRows = this.confirmAttachSelectedRows.bind(this);
+    this.cancelAttachSelectedRows = this.cancelAttachSelectedRows.bind(this);
+    this.getClassRelationColumns = this.getClassRelationColumns.bind(this);
     this.showCreateClass = this.showCreateClass.bind(this);
     this.refresh = this.refresh.bind(this);
     this.selectRow = this.selectRow.bind(this);
     this.updateRow = this.updateRow.bind(this);
     this.updateOrdering = this.updateOrdering.bind(this);
     this.handlePointerClick = this.handlePointerClick.bind(this);
+    this.handleCLPChange = this.handleCLPChange.bind(this);
     this.setRelation = this.setRelation.bind(this);
     this.showAddColumn = this.showAddColumn.bind(this);
     this.addRow = this.addRow.bind(this);
@@ -296,12 +302,19 @@ export default class Browser extends DashboardView {
 
   async fetchParseData(source, filters) {
     const query = queryFromFilters(source, filters);
-    if (this.state.ordering[0] === '-') {
-      query.descending(this.state.ordering.substr(1));
+    const sortDir = this.state.ordering[0] === '-' ? '-' : '+';
+    const field = this.state.ordering.substr(sortDir === '-' ? 1 : 0)
+
+    if (sortDir === '-') {
+      query.descending(field)
     } else {
-      query.ascending(this.state.ordering);
+      query.ascending(field)
     }
-    query.addDescending('createdAt');
+
+    if (field !== 'createdAt') {
+      query.addDescending('createdAt');
+    }
+
     query.limit(200);
     const data = await query.find({ useMasterKey: true });
     return data;
@@ -428,6 +441,15 @@ export default class Browser extends DashboardView {
         compareTo: id
     }]);
     history.push(this.context.generatePath(`browser/${className}?filters=${encodeURIComponent(filters)}`));
+  }
+
+  handleCLPChange(clp) {
+    let p = this.props.schema.dispatch(ActionTypes.SET_CLP, {
+      className: this.props.params.className,
+      clp,
+    });
+    p.then(() => this.handleFetchedSchema());
+    return p;
   }
 
   updateRow(row, attr, value) {
@@ -575,7 +597,8 @@ export default class Browser extends DashboardView {
       this.state.showDropClassDialog ||
       this.state.showExportDialog ||
       this.state.rowsToDelete ||
-      this.state.showAttachRowsDialog
+      this.state.showAttachRowsDialog ||
+      this.state.showAttachSelectedRowsDialog
     );
   }
 
@@ -592,12 +615,12 @@ export default class Browser extends DashboardView {
   }
 
   async confirmAttachRows(objectIds) {
-    const relation = this.state.relation;
-    const query = new Parse.Query(relation.targetClassName);
-    const parent = relation.parent;
     if (!objectIds || !objectIds.length) {
       throw 'No objectId passed';
     }
+    const relation = this.state.relation;
+    const query = new Parse.Query(relation.targetClassName);
+    const parent = relation.parent;
     query.containedIn('objectId', objectIds);
     let objects = await query.find({ useMasterKey: true });
     const missedObjectsCount = objectIds.length - objects.length;
@@ -624,6 +647,61 @@ export default class Browser extends DashboardView {
       relationCount: this.state.relationCount + objects.length,
       showAttachRowsDialog: false,
     });
+  }
+
+  showAttachSelectedRowsDialog() {
+    this.setState({
+      showAttachSelectedRowsDialog: true,
+    });
+  }
+
+  cancelAttachSelectedRows() {
+    this.setState({
+      showAttachSelectedRowsDialog: false,
+    });
+  }
+
+  async confirmAttachSelectedRows(className, targetObjectId, relationName, objectIds) {
+    const parentQuery = new Parse.Query(className);
+    const parent = await parentQuery.get(targetObjectId, { useMasterKey: true });
+    const query = new Parse.Query(this.props.params.className);
+    query.containedIn('objectId', objectIds);
+    const objects = await query.find({ useMasterKey: true });
+    parent.relation(relationName).add(objects);
+    await parent.save(null, { useMasterKey: true });
+    this.setState({
+      selection: {},
+    });
+  }
+
+  getClassRelationColumns(className) {
+    const currentClassName = this.props.params.className;
+    return this.getClassColumns(className, false)
+      .map(column => {
+        if (column.type === 'Relation' && column.targetClass === currentClassName) {
+          return column.name;
+        }
+      })
+      .filter(column => column);
+  }
+
+  getClassColumns(className, onlyTouchable = true) {
+    let columns = [];
+    const classes = this.props.schema.data.get('classes');
+    classes.get(className).forEach((field, name) => {
+        columns.push({
+          ...field,
+          name,
+        });
+    });
+    if (onlyTouchable) {
+      let untouchable = DefaultColumns.All;
+      if (className[0] === '_' && DefaultColumns[className]) {
+        untouchable = untouchable.concat(DefaultColumns[className]);
+      }
+      columns = columns.filter((column) => untouchable.indexOf(column.name) === -1);
+    }
+    return columns;
   }
 
   renderSidebar() {
@@ -715,16 +793,10 @@ export default class Browser extends DashboardView {
             onDeleteRows={this.showDeleteRows}
             onDropClass={this.showDropClass}
             onExport={this.showExport}
-            onChangeCLP={clp => {
-              let p = this.props.schema.dispatch(ActionTypes.SET_CLP, {
-                className: this.props.params.className,
-                clp,
-              });
-              p.then(() => this.handleFetchedSchema());
-              return p;
-            }}
+            onChangeCLP={this.handleCLPChange}
             onRefresh={this.refresh}
             onAttachRows={this.showAttachRowsDialog}
+            onAttachSelectedRows={this.showAttachSelectedRowsDialog}
 
             columns={columns}
             className={className}
@@ -768,16 +840,7 @@ export default class Browser extends DashboardView {
           onConfirm={this.addColumn} />
       );
     } else if (this.state.showRemoveColumnDialog) {
-      let currentColumns = [];
-      let untouchable = DefaultColumns.All;
-      if (className[0] === '_' && DefaultColumns[className]) {
-        untouchable = untouchable.concat(DefaultColumns[className]);
-      }
-      classes.get(className).forEach((field, name) => {
-        if (untouchable.indexOf(name) < 0) {
-          currentColumns.push(name);
-        }
-      });
+      let currentColumns = this.getClassColumns(className).map(column => column.name);
       extras = (
         <RemoveColumnDialog
           currentColumns={currentColumns}
@@ -818,6 +881,16 @@ export default class Browser extends DashboardView {
           onConfirm={this.confirmAttachRows}
         />
       )
+    } else if (this.state.showAttachSelectedRowsDialog) {
+      extras = (
+        <AttachSelectedRowsDialog
+          classes={this.props.schema.data.get('classes').keySeq().toArray()}
+          onSelectClass={this.getClassRelationColumns}
+          selection={this.state.selection}
+          onCancel={this.cancelAttachSelectedRows}
+          onConfirm={this.confirmAttachSelectedRows}
+        />
+      );
     }
     return (
       <div>
